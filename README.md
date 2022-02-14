@@ -19,3 +19,8 @@ To set up, clone the repo and cd into it, then run the following commands (makin
 **dev**: Contains three old files that will soon be deleted, and also `resource_generator.py`. When run, this produces `resources.py`  in the `images` directory.  
 **images**: Images to be used for the GUI. The GUI does not access the images directly but via `resources.py`, which encodes the images.
 
+## Notes on scheduler algorithm
+The scheduler algorithm is heavily based off the Held-Karp algorithm. There are three significant differences:  
+ 1. The problem at hand more closely resembles a TSP with Time Windows than a classic TSP. The scheduler program must check to ensure races in the calculated order fall within one of their time windows.  
+ 2. Classic TSP asks for a Hamiltonian cycle; the scheduler program looks for an ayclic Hamiltonian path (I am still waiting to hear back on how equipment is shipped back at the end of the season). However the algorithm is easily adapted for this.  
+ 3. Classic Held-Karp starts with the smallest possible subsets and iteratively builds up to the set of races/cities itself. This algorithm starts with the set of races/cities itself and recursively goes down to the smallest possible subsets. There is no reason for this other than it made the code somewhat more readable.
