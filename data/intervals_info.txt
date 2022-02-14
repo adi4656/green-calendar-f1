@@ -1,0 +1,13 @@
+Use Intervals to restrict when races and the summer break can take place in the season.
+
+
+Every race can optionally be given 1+ intervals. Intervals contain the earliest position in the calendar a race can have, and the latest. Eg 1 to 3 indicates a race can be the 1st, 2nd, or 3rd race in the season.
+
+
+The summer break is considered as a race. For example, if it must occur between the 7th and 8th races, it would have a time window 8 to 8 as it must be the 8th event in the calendar (hence the 8th race would have position 9). 
+
+
+Use negative positions to indicate a position in the calendar from the last race of the season rather than from the first race. The last race has position -1, the second-last -2, etc.
+
+
+Negative positions allow intervals with a start but no end, and vice versa. Eg a race that must occur after the 6th race but has no restraint on when it must occur before would be 6 to -1.

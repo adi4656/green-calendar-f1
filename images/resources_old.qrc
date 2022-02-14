@@ -1,0 +1,18 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource>
+    <file alias="combobox_arrow.PNG">images/combobox_arrow.PNG</file>
+    <file alias="delete.png">images/delete.png</file>
+    <file alias="directions_icon.PNG">images/directions_icon.PNG</file>
+    <file alias="europe_icon.png">images/europe_icon.png</file>
+    <file alias="flyaway_icon.png">images/flyaway_icon.png</file>
+    <file alias="gold_star.png">images/gold_star.png</file>
+    <file alias="gold_star_background.jpg">images/gold_star_background.jpg</file>
+    <file alias="hs2_facts.png">images/hs2_facts.png</file>
+    <file alias="info.png">images/info.png</file>
+    <file alias="intervals_icon.PNG">images/intervals_icon.PNG</file>
+    <file alias="pencil.png">images/pencil.png</file>
+    <file alias="races_icon.png">images/races_icon.png</file>
+    <file alias="search_icon.png">images/search_icon.png</file>
+</qresource>
+</RCC>
