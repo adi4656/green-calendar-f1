@@ -4,7 +4,9 @@ import sys
 import copy
 from math import inf
 
-import src.scheduler as scheduler
+SCHEDULER_PATH = pathlib.Path.cwd().parent / "src"
+sys.path.append(str(SCHEDULER_PATH))
+import scheduler
 
 
 def valid(route, graph, all_races, all_time_windows):

@@ -6,7 +6,9 @@ import time
 import matplotlib.pyplot as plt
 
 import randomiser
-import src.scheduler as scheduler
+SCHEDULER_PATH = pathlib.Path.cwd().parent / "src"
+sys.path.append(str(SCHEDULER_PATH))
+import scheduler
 
 time_complexity = lambda n: (2**n) * (n**2)
 

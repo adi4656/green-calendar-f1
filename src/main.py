@@ -4,6 +4,7 @@
 import sys
 import os
 import json
+import pathlib
 from math import sqrt
 
 #
@@ -58,6 +59,8 @@ from PySide2.QtGui import (
 
 #
 # Local application/library specific imports
+RESOURCES_PATH = pathlib.Path.cwd().parent / "images"
+sys.path.append(str(RESOURCES_PATH))
 import resources
 
 # GLOBALS AND CONSTANTS
