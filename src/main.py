@@ -663,10 +663,11 @@ class RoutesPage(Page):
 
 class IntervalsPage(Page):
 
-    def __init__(self):
+    def __init__(self, INTERVALS_INFO):
         self.SMALL_STRETCH = 5
         self.MEDIUM_STRETCH = round(5 * PHI)
         self.LARGE_STRETCH = round(5 * PHI * PHI)
+        self.INTERVALS_INFO = INTERVALS_INFO
 
         super().__init__()
         # Add widgets to main layout
@@ -716,10 +717,8 @@ class IntervalsPage(Page):
 
     @Slot()
     def openInfoDialog(self):
-        with open("intervals_info.txt") as intervals_info_file:
-            intervals_info = intervals_info_file.read()
         dialogBox = QMessageBox()
-        dialogBox.setText(intervals_info)
+        dialogBox.setText(self.INTERVALS_INFO)
         dialogBox.setWindowTitle("About intervals")
         dialogBox.setWindowIcon(QIcon(QPixmap(self.infoButton_img)))
         dialogBox.exec()
@@ -772,24 +771,21 @@ class CalendarPage(Page):
     def addPageHeaders(self):
         super().addPageHeaders("Final Calendar")
         self.pageName.setAlignment(Qt.AlignHCenter)
-        calendar = loadCalendar()
 
 
 class MainWindow(QMainWindow):
 
-    def __init__(self):
+    def __init__(self, table_data, INTERVALS_INFO):
         super().__init__()
         self.setWindowTitle("Green Calendar F1")
         self.setGeometry(100, 100, 750 * PHI, 750)
         self.setWindowIcon(QIcon(APP_ICON))
-        self.displayInit()
+        self.displayInit(table_data, INTERVALS_INFO)
 
-    def displayInit(self):
+    def displayInit(self, table_data, INTERVALS_INFO):
         self.displayToolBar()
         self.displayTitleLabel()
 
-        with open("race_locations.txt", "r") as table_file:
-            table_data = json.load(table_file)
         RaceEdit.races.setStringList(sorted(table_data.keys()))
 
         self.racesPage = RacesPage(table_data)
@@ -798,7 +794,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.racesPage)
         self.routesPage = RoutesPage()
         self.pages.addWidget(self.routesPage)
-        self.intervalsPage = IntervalsPage()
+        self.intervalsPage = IntervalsPage(INTERVALS_INFO)
         self.pages.addWidget(self.intervalsPage)
         self.calendarPage = CalendarPage()
         self.pages.addWidget(self.calendarPage)
@@ -909,25 +905,21 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         raceData = self.racesPage.table.getData()
-        with open("race_locations.txt", "w") as races_file:
+        with open(str(RACE_LOCS_FILENAME), "w") as races_file:
             json.dump(raceData, races_file)
         QMainWindow.closeEvent(self, event)
 
 
-def loadCalendar():
-    if not os.path.isfile("calendar.txt"):
-        return False
-    with open("calendar.txt", "r") as calendar_file:
-        try:
-            calendar = json.load(calendar_file)
-        except ValueError:
-            return False
-    if (calendar == []) or not isinstance(calendar, list):
-        return False
-    return calendar
-
-
-app = QApplication([])
-app.setStyleSheet(STYLE_SHEET)
-window = MainWindow()
-sys.exit(app.exec_())
+if __name__ == "__main__":
+    DATA_PATH = pathlib.Path.cwd().parent / "data"
+    RACE_LOCS_FILENAME = DATA_PATH / "race_locations.txt"
+    with open(str(DATA_PATH / "intervals_info.txt")) as intervals_info_file:
+        INTERVALS_INFO = intervals_info_file.read()
+    with open(str(RACE_LOCS_FILENAME)) as table_file:
+        table_data = json.load(table_file)
+    
+    
+    app = QApplication([])
+    app.setStyleSheet(STYLE_SHEET)
+    window = MainWindow(table_data, INTERVALS_INFO)
+    sys.exit(app.exec_())
