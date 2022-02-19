@@ -18,7 +18,6 @@ def calculate_ratios(lower_set_size, upper_set_size, reps_per_size):
     for set_size in range(lower_set_size, upper_set_size + 1):
         total_time = 0
         for i in range(reps_per_size):
-            scheduler.solved = {}
             matrix = randomiser.random_matrix(set_size, 50)
             time_windows = randomiser.random_time_windows(set_size)
             time_windows = {}

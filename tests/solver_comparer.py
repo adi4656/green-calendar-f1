@@ -60,7 +60,6 @@ def naive(GRAPH, all_races, all_time_windows):
 
 
 def compare(graph, time_windows):
-    scheduler.solved = {}
     num_races = len(graph)
     all_races = list(range(num_races))
     scheduler_result = scheduler.solve(None, set(all_races),

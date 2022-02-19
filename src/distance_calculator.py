@@ -5,6 +5,39 @@ import pathlib
 import requests
 import googlemaps
 
+import file_formatting
+
+
+# Initialise constants, setup API clients
+
+_FLIGHT_EFFICIENCY = (
+    602.0 *
+    (10**-6)) / 1000.0  # (602 * 10^-6) tonnes CO2 per tonne-km for air freight
+_ROAD_EFFICIENCY = (
+    62.0 *
+    (10**-6)) / 1000.0  # (62 * 10^-6) tonnes CO2 per tonne-km for trucks
+_TONNAGE = 500  # 50 tons per team, and 10 teams
+
+project_path = pathlib.Path.cwd().parent
+hqs_path = project_path / "data/headquarters.txt"
+env_path = project_path / ".env"
+
+with open(env_path) as env_file, open(hqs_path) as hq_file, open(file_formatting.ROUTES_PATH) as routes_file:
+    env = json.load(env_file)
+    hq_data = json.load(hq_file)
+    routes_data = json.load(routes_file)
+  
+_FLIGHT_API_URL = "https://distanceto.p.rapidapi.com/get"
+_FLIGHT_API_HEADERS = {
+    "x-rapidapi-host": "distanceto.p.rapidapi.com",
+    "x-rapidapi-key": f"{env['rapidapi']}",
+}
+_GMAPS_CLIENT = googlemaps.Client(key=f"{env['googlemaps']}")
+
+_EUROPE_HQS = hq_data[0]
+_FLYAWAY_HQS = hq_data[1]
+_ALL_HQS = {**_EUROPE_HQS, **_FLYAWAY_HQS}
+
 
 def _flight_emitted(from_iata, to_iata):
     """Emissions per ton."""
@@ -41,16 +74,16 @@ def _road_emitted(from_addr, to_addr):
     return dist * _ROAD_EFFICIENCY
 
 
-def _summerbreak_emitted(race_data):
+def _summerbreak_emitted(race_location):
     """The emissions per ton of a journey from race to an idealised "summer break race".
     Distances to this idealised race are weighted sums of distances to all teams' bases.
     Assumes each team has equal tonnage."""
     hq_weightage = 1 / (len(_ALL_HQS))
-    (race_iata, race_leg, race_addr) = race_data
+    (race_iata, race_leg, race_addr) = race_location
 
     emit_per_ton = 0
     for hq in _ALL_HQS:
-        if (hq in _FLYAWAY_HQS) or (race_leg != _EUROPE_LEG_NAME):
+        if (hq in _FLYAWAY_HQS) or (race_leg != file_formatting.EUROPE_NAME):
             emit_per_ton += hq_weightage * _flight_emitted(
                 race_iata, _ALL_HQS[hq])
         else:
@@ -65,18 +98,18 @@ def _memoise_emitted(emitted):
     Decorator used as a) emitted is part of public API; b) can easily disable it to test API calls.
     """
 
-    def wrapper(from_data, to_data):
+    def wrapper(from_data, to_data, all_routes):
         (from_name, _) = from_data
         (to_name, _) = to_data
         race_pair = str((from_name, to_name))
-        if race_pair in _ALL_ROUTES:
-            return _ALL_ROUTES[race_pair]
+        if race_pair in all_routes:
+            return all_routes[race_pair]
 
         res = emitted(from_data, to_data)
-        with open(_ROUTES_PATH) as routes_file:
+        with open(file_formatting.ROUTES_PATH) as routes_file:
             routes_data = json.load(routes_file)
-        routes_data["Precomputed"][race_pair] = res
-        with open(_ROUTES_PATH, "w") as routes_file:
+        routes_data[file_formatting.PRECOMPUTED_NAME][race_pair] = res
+        with open(file_formatting.ROUTES_PATH, "w") as routes_file:
             json.dump(routes_data, routes_file)
         return res
 
@@ -84,7 +117,7 @@ def _memoise_emitted(emitted):
 
 
 @_memoise_emitted
-def emitted(from_data, to_data):
+def emitted(from_data, to_data, all_routes):
     """Total CO2 emitted by shortest route from race1 to race2,
     accounting for whether journey is by road or air."""
     (from_name, (from_iata, from_leg, from_addr)) = from_data
@@ -93,12 +126,12 @@ def emitted(from_data, to_data):
         return 0
 
     try:
-        if from_name == _SUMMERBREAK_NAME:
+        if from_name == file_formatting.SUMMERBREAK_NAME:
             emit_per_ton = _summerbreak_emitted((to_iata, to_leg, to_addr))
-        elif to_name == _SUMMERBREAK_NAME:
+        elif to_name == file_formatting.SUMMERBREAK_NAME:
             emit_per_ton = _summerbreak_emitted(
                 (from_iata, from_leg, from_addr))
-        elif (from_leg == _EUROPE_LEG_NAME) and (to_leg == _EUROPE_LEG_NAME):
+        elif (from_leg == file_formatting.EUROPE_NAME) and (to_leg == file_formatting.EUROPE_NAME):
             emit_per_ton = _road_emitted(from_addr, to_addr)
         else:
             emit_per_ton = _flight_emitted(from_iata, to_iata)
@@ -106,46 +139,3 @@ def emitted(from_data, to_data):
     except:
         raise Exception("API access error.")
     return emit_per_ton * _TONNAGE
-
-
-# Initialise constants and API clients
-
-_FLIGHT_EFFICIENCY = (
-    602.0 *
-    (10**-6)) / 1000.0  # (602 * 10^-6) tonnes CO2 per tonne-km for air freight
-_ROAD_EFFICIENCY = (
-    62.0 *
-    (10**-6)) / 1000.0  # (62 * 10^-6) tonnes CO2 per tonne-km for trucks
-_TONNAGE = 500  # 50 tons per team, and 10 teams
-
-project_path = pathlib.Path.cwd().parent
-_ROUTES_PATH = project_path / "data/routes.txt"
-hqs_path = project_path / "data/headquarters.txt"
-env_path = project_path / ".env"
-
-with open(env_path) as env_file, open(hqs_path) as hq_file, open(
-        _ROUTES_PATH) as routes_file:
-    env = json.load(env_file)
-    hq_data = json.load(hq_file)
-    routes_data = json.load(routes_file)
-
-_FLIGHT_API_URL = "https://distanceto.p.rapidapi.com/get"
-_FLIGHT_API_HEADERS = {
-    "x-rapidapi-host": "distanceto.p.rapidapi.com",
-    "x-rapidapi-key": f"{env['rapidapi']}",
-}
-_GMAPS_CLIENT = googlemaps.Client(key=f"{env['googlemaps']}")
-
-_EUROPE_HQS = hq_data[0]
-_FLYAWAY_HQS = hq_data[1]
-_ALL_HQS = {**_EUROPE_HQS, **_FLYAWAY_HQS}
-
-_EUROPE_LEG_NAME = "Europe"
-_SUMMERBREAK_NAME = "Summer Break"
-
-precomputed_routes = routes_data["Precomputed"]
-user_defined_routes = routes_data["User-defined"]
-_ALL_ROUTES = {
-    **precomputed_routes,
-    **user_defined_routes,
-}  # making sure to override precomputed data with user-defined data

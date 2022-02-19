@@ -6,6 +6,15 @@ from math import inf
 import numpy as np
 
 import distance_calculator
+import file_formatting
+
+
+# Solved is the table that memoises calls to solve().
+# It is kept as global state in anticipation of parallelising this algorithm.
+# It is a large table - space complexity O(n * (2 ** n)).
+# So it would be expensive to a) copy it for each parallel recursive calls
+# and b) merge the results of each parallel recursive call into a new table.
+solved = {}
 
 
 def normalise_tws(tws, num_races):
@@ -58,6 +67,9 @@ def solve(start, to_visit, adj_matrix, unnormalised_tws):
     so copying it takes O(1) instead of O(N) time (important for the case
     when we find a start and to_visit already in solved).
     """
+    global solved
+    solved = {}
+    
     num_races = len(adj_matrix)
     return _do_solve(
         start,
@@ -72,7 +84,8 @@ def _do_solve(start, to_visit, adj_matrix, tws, num_races):
     """
     PURPOSE
     Performs main computation of solve.
-    Logic is separated to avoid repeating computations in solve.
+    Logic is separated to avoid repeating computations in solve, and to not
+    reset solved.
     FORMAT
     Time windows must be normalised.
     NUM_RACES must be number of races in graph represented by adj_matrix.
@@ -114,43 +127,17 @@ def _do_solve(start, to_visit, adj_matrix, tws, num_races):
     return (itertools.chain(path), minimum)
 
 
-def create_adj_matrix(num_races, race_names_order, location_data):
-    # Kept public in anticipation of use by GUI.
-    adj_matrix = np.full((num_races, num_races), 0, dtype=np.double)
-    for row_index, from_race in enumerate(race_names_order):
-        for col_index, to_race in enumerate(race_names_order):
-            adj_matrix[row_index][col_index] = distance_calculator.emitted(
-                (from_race, location_data[from_race]),
-                (to_race, location_data[to_race]))
-    return adj_matrix
-
-
-def load_data():
-    # Kept public in anticipation of use by GUI.
-    data_path = pathlib.Path.cwd().parent / "data"
-    locs_path = data_path / "race_locations.txt"
-    tws_path = data_path / "timewindows.txt"
-
-    with open(locs_path) as infile:
-        location_data = json.load(infile)
-    location_data["Summer Break"] = [None] * 3
-    with open(tws_path) as infile:
-        tws = json.load(infile)
-
-    return (tws, location_data)
+def _load_data():
+    with open(file_formatting.RACE_DATA_PATH) as infile:
+        race_data = json.load(infile)
+    return race_data
 
 
 def main():
     """Read appropriate external data,
     and output result of solve() in a human-friendly format."""
-    unformatted_tws, location_data = load_data()
-    race_names_order = list(location_data.keys())
-    num_races = len(race_names_order)
-    adj_matrix = create_adj_matrix(num_races, race_names_order, location_data)
-    renamed_tws = {
-        race_names_order.index(race_name): unformatted_tws[race_name]
-        for race_name in unformatted_tws
-    }
+    race_data = _load_data()
+    num_races, adj_matrix, renamed_tws, race_names_order = file_formatting.extract_all(race_data)
 
     res = solve(None, set(range(num_races)), adj_matrix, renamed_tws)
     if res[1] == inf:
@@ -160,13 +147,6 @@ def main():
         for race_index in res[0]:
             print(race_names_order[race_index])
 
-
-# Solved is the table that memoises calls to solve().
-# It is kept as global state in anticipation of parallelising this algorithm.
-# It is a large table - space complexity O(n * (2 ** n)).
-# So it would be expensive to a) copy it for each parallel recursive calls
-# and b) merge the results of each parallel recursive call into a new table.
-solved = {}
 
 if __name__ == "__main__":
     main()

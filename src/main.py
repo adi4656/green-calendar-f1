@@ -798,7 +798,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.intervalsPage)
         self.calendarPage = CalendarPage()
         self.pages.addWidget(self.calendarPage)
-        self.pages.setCurrentIndex(2)
+        self.pages.setCurrentIndex(0)
 
         self.centralWidget = QWidget()
         self.topLayout = QVBoxLayout(self.centralWidget)
