@@ -6,6 +6,7 @@ from math import inf
 import numpy as np
 
 import distance_calculator
+import file_constants
 import file_formatting
 
 
@@ -128,7 +129,7 @@ def _do_solve(start, to_visit, adj_matrix, tws, num_races):
 
 
 def _load_data():
-    with open(file_formatting.RACE_DATA_PATH) as infile:
+    with open(file_constants.RACE_DATA_PATH) as infile:
         race_data = json.load(infile)
     return race_data
 

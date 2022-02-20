@@ -5,7 +5,7 @@ import pathlib
 import requests
 import googlemaps
 
-import file_formatting
+import file_constants
 
 
 # Initialise constants, setup API clients
@@ -22,7 +22,8 @@ project_path = pathlib.Path.cwd().parent
 hqs_path = project_path / "data/headquarters.txt"
 env_path = project_path / ".env"
 
-with open(env_path) as env_file, open(hqs_path) as hq_file, open(file_formatting.ROUTES_PATH) as routes_file:
+
+with open(env_path) as env_file, open(hqs_path) as hq_file, open(file_constants.ROUTES_PATH) as routes_file:
     env = json.load(env_file)
     hq_data = json.load(hq_file)
     routes_data = json.load(routes_file)
@@ -83,7 +84,7 @@ def _summerbreak_emitted(race_location):
 
     emit_per_ton = 0
     for hq in _ALL_HQS:
-        if (hq in _FLYAWAY_HQS) or (race_leg != file_formatting.EUROPE_NAME):
+        if (hq in _FLYAWAY_HQS) or (race_leg != file_constants.EUROPE_NAME):
             emit_per_ton += hq_weightage * _flight_emitted(
                 race_iata, _ALL_HQS[hq])
         else:
@@ -106,10 +107,10 @@ def _memoise_emitted(emitted):
             return all_routes[race_pair]
 
         res = emitted(from_data, to_data)
-        with open(file_formatting.ROUTES_PATH) as routes_file:
+        with open(file_constants.ROUTES_PATH) as routes_file:
             routes_data = json.load(routes_file)
-        routes_data[file_formatting.PRECOMPUTED_NAME][race_pair] = res
-        with open(file_formatting.ROUTES_PATH, "w") as routes_file:
+        routes_data[file_constants.PRECOMPUTED_NAME][race_pair] = res
+        with open(file_constants.ROUTES_PATH, "w") as routes_file:
             json.dump(routes_data, routes_file)
         return res
 
@@ -126,12 +127,12 @@ def emitted(from_data, to_data, all_routes):
         return 0
 
     try:
-        if from_name == file_formatting.SUMMERBREAK_NAME:
+        if from_name == file_constants.SUMMERBREAK_NAME:
             emit_per_ton = _summerbreak_emitted((to_iata, to_leg, to_addr))
-        elif to_name == file_formatting.SUMMERBREAK_NAME:
+        elif to_name == file_constants.SUMMERBREAK_NAME:
             emit_per_ton = _summerbreak_emitted(
                 (from_iata, from_leg, from_addr))
-        elif (from_leg == file_formatting.EUROPE_NAME) and (to_leg == file_formatting.EUROPE_NAME):
+        elif (from_leg == file_constants.EUROPE_NAME) and (to_leg == file_constants.EUROPE_NAME):
             emit_per_ton = _road_emitted(from_addr, to_addr)
         else:
             emit_per_ton = _flight_emitted(from_iata, to_iata)

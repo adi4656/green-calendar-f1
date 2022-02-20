@@ -62,6 +62,8 @@ from PySide2.QtGui import (
 RESOURCES_PATH = pathlib.Path.cwd().parent / "images"
 sys.path.append(str(RESOURCES_PATH))
 import resources
+import file_constants
+import file_formatting
 
 # GLOBALS AND CONSTANTS
 #
@@ -191,7 +193,7 @@ class MyTableWidget(QTableWidget):
         self.createBinIcons()
 
         self.setRowCount(len(table_data))
-        self.setColumnCount(len(columns) + self.NUM_ACTIONS)
+        self.setColumnCount(self.NUM_ACTIONS + 1 + len(columns))
         self.setIconSize(QSize(self.ICON_DIMENSION, self.ICON_DIMENSION))
 
         self.populateHeaders(table_data, columns)
@@ -322,7 +324,7 @@ class MyTableWidget(QTableWidget):
     def populateHeaders(self, table_data, columns):
         for colIndex in range(self.NUM_ACTIONS):
             self.changeHeaderItem(colIndex, None, "")
-        for colIndex, colName in enumerate(columns):
+        for colIndex, colName in enumerate(["Shortname"] + columns):
             self.changeHeaderItem(colIndex + self.NUM_ACTIONS,
                                   self.COMBINED_ARROW, colName)
 
@@ -374,7 +376,7 @@ class MyTableWidget(QTableWidget):
             for colNum, val in enumerate(table_data[shortname]):
                 item = QTableWidgetItem(val)
                 if colNum == columns.index("Leg") - 1:
-                    if val == "Europe":
+                    if val == file_constants.EUROPE_NAME:
                         icon = QIcon()
                         icon.addPixmap(
                             QPixmap(EUROPE_ICON).scaled(10, 10),
@@ -382,7 +384,7 @@ class MyTableWidget(QTableWidget):
                         item.setIcon(icon)
                         r, g, b = (45, 125, 255)
                         item.setForeground(QColor(r, g, b))
-                    elif val == "Flyaway":
+                    elif val == file_constants.FLYAWAY_NAME:
                         icon = QIcon()
                         icon.addPixmap(
                             QPixmap(FLYAWAY_ICON).scaled(10, 10),
@@ -525,8 +527,9 @@ class MyComboBox(QComboBox):
 
 class Page(QWidget):
 
-    def __init__(self):
+    def __init__(self, mainWindow):
         super().__init__()
+        self.mainWindow = mainWindow
         self.mainLayout = QVBoxLayout(self)
         self.mainLayout.setContentsMargins(20, 20, 20, 0)
 
@@ -559,8 +562,8 @@ class Page(QWidget):
 
 class RacesPage(Page):
 
-    def __init__(self, table_data):
-        super().__init__()
+    def __init__(self, mainWindow):
+        super().__init__(mainWindow)
 
         self.addPageHeaders("Race List", "Add, modify or delete races")
         self.mainLayout.addSpacing(15)
@@ -568,7 +571,7 @@ class RacesPage(Page):
         self.addTableControls()
         self.mainLayout.addSpacing(15)
 
-        self.addTable(table_data)
+        self.addTable(mainWindow.race_data.table_data)
         self.mainLayout.addStretch(1)
         self.mainLayout.setStretchFactor(self.table, 1000)
 
@@ -578,13 +581,8 @@ class RacesPage(Page):
         self.filter.setLineEdit(comboBoxLineEdit)
         comboBoxLineEdit.pressed.connect(self.filter.lineEditPressed)
 
-        self.searchBar = QLineEdit()
+        self.searchBar = RaceEdit(self.mainWindow.race_data.races, "Search by short name...")
         self.searchBar.setPlaceholderText("Search by short name...")
-        self.completerModel = RaceEdit.races
-        self.completer = QCompleter()
-        self.completer.setModel(self.completerModel)
-        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.searchBar.setCompleter(self.completer)
         self.searchBar.setStyleSheet("""
             QLineEdit{{
                 height: 32px;
@@ -638,7 +636,7 @@ class RacesPage(Page):
         self.mainLayout.addLayout(self.tableControls)
 
     def addTable(self, table_data):
-        columns = ["Shortname", "Airport", "Leg", "Address"]
+        columns = ["Airport", "Leg", "Address"]
         self.table = MyTableWidget(table_data, columns)
         self.mainLayout.addWidget(self.table)
 
@@ -653,8 +651,8 @@ class RacesPage(Page):
 
 class RoutesPage(Page):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, mainWindow):
+        super().__init__(mainWindow)
         # Add widgets to main layout
         self.addPageHeaders("Routes",
                             "Set the intended route between any two races.")
@@ -663,13 +661,13 @@ class RoutesPage(Page):
 
 class IntervalsPage(Page):
 
-    def __init__(self, INTERVALS_INFO):
+    def __init__(self, INTERVALS_INFO, mainWindow):
         self.SMALL_STRETCH = 5
         self.MEDIUM_STRETCH = round(5 * PHI)
         self.LARGE_STRETCH = round(5 * PHI * PHI)
         self.INTERVALS_INFO = INTERVALS_INFO
 
-        super().__init__()
+        super().__init__(mainWindow)
         # Add widgets to main layout
         self.addPageHeaders()
 
@@ -705,7 +703,7 @@ class IntervalsPage(Page):
         self.descriptionRow.addStretch()
 
         self.selectionRow = QHBoxLayout()
-        self.selectionBox = RaceEdit()
+        self.selectionBox = RaceEdit(self.mainWindow.race_data.races, "Eg Australia")
         self.selectionRow.addWidget(self.selectionBox)
         self.selectionRow.addStretch()
 
@@ -724,26 +722,19 @@ class IntervalsPage(Page):
         dialogBox.exec()
 
 
-class SortedStringListModel(QStringListModel):
-
-    def setStringList(self, strings):
-        super().setStringList(strings)
-        self.sort(0)
-
-
 class RaceEdit(QComboBox):
     """Widget for entering races."""
 
-    races = SortedStringListModel([])
-
-    def __init__(self):
+    def __init__(self, races, placeholderText):
         super().__init__()
-        self.setModel(RaceEdit.races)
+        self.model = QStringListModel(races)
+        self.setModel(self.model)
         self.setEditable(True)
         self.setInsertPolicy(QComboBox.NoInsert)
-        self.completer = QCompleter(RaceEdit.races)
+        self.completer = QCompleter(self.model)
+        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
         self.setCurrentIndex(-1)
-        self.lineEdit().setPlaceholderText("Eg Australia")
+        self.lineEdit().setPlaceholderText(placeholderText)
 
         self.setStyleSheet(f"""
             QComboBox{{
@@ -763,9 +754,8 @@ class RaceEdit(QComboBox):
 
 class CalendarPage(Page):
 
-    def __init__(self):
-        super().__init__()
-        # Add widgets to main layout
+    def __init__(self, mainWindow):
+        super().__init__(mainWindow)
         self.addPageHeaders()
 
     def addPageHeaders(self):
@@ -773,30 +763,40 @@ class CalendarPage(Page):
         self.pageName.setAlignment(Qt.AlignHCenter)
 
 
+class RaceData:
+    def __init__(self, dict_):
+        self.dict_ = dict_
+        self.races = sorted(list(dict_.keys()))
+        self.table_data = file_formatting.get_table_data(dict_, [file_constants.TWS_INDEX])
+
+    def __len__(self):
+        return len(self.dict_)
+
+
 class MainWindow(QMainWindow):
 
-    def __init__(self, table_data, INTERVALS_INFO):
+    def __init__(self, race_data, routes, intervals_info):
         super().__init__()
+        self.race_data = RaceData(race_data)
+        self.routes = routes
+        
         self.setWindowTitle("Green Calendar F1")
         self.setGeometry(100, 100, 750 * PHI, 750)
         self.setWindowIcon(QIcon(APP_ICON))
-        self.displayInit(table_data, INTERVALS_INFO)
+        self.displayInit(intervals_info)
 
-    def displayInit(self, table_data, INTERVALS_INFO):
+    def displayInit(self, intervals_info):
         self.displayToolBar()
         self.displayTitleLabel()
 
-        RaceEdit.races.setStringList(sorted(table_data.keys()))
-
-        self.racesPage = RacesPage(table_data)
-
         self.pages = QStackedWidget()
+        self.racesPage = RacesPage(self)
         self.pages.addWidget(self.racesPage)
-        self.routesPage = RoutesPage()
+        self.routesPage = RoutesPage(self)
         self.pages.addWidget(self.routesPage)
-        self.intervalsPage = IntervalsPage(INTERVALS_INFO)
+        self.intervalsPage = IntervalsPage(intervals_info, self)
         self.pages.addWidget(self.intervalsPage)
-        self.calendarPage = CalendarPage()
+        self.calendarPage = CalendarPage(self)
         self.pages.addWidget(self.calendarPage)
         self.pages.setCurrentIndex(0)
 
@@ -811,7 +811,7 @@ class MainWindow(QMainWindow):
         self.setMinimumHeight(
             self.calendarButton.mapToGlobal(
                 QPoint(0, self.calendarButton.height())).y()
-        )  # !!! change this to be general last button of toolbar !!!
+        )  # TODO: change this to be general last button of toolbar
         self.setStyleSheet("""
             QMainWindow{
                 background-color: white;
@@ -904,22 +904,26 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentIndex(self.toolbarButtonGroup.id(button))
 
     def closeEvent(self, event):
-        raceData = self.racesPage.table.getData()
-        with open(str(RACE_LOCS_FILENAME), "w") as races_file:
-            json.dump(raceData, races_file)
+        global race_data, routes
+        race_data = self.race_data.dict_
+        routes = self.routes
         QMainWindow.closeEvent(self, event)
 
 
 if __name__ == "__main__":
-    DATA_PATH = pathlib.Path.cwd().parent / "data"
-    RACE_LOCS_FILENAME = DATA_PATH / "race_locations.txt"
-    with open(str(DATA_PATH / "intervals_info.txt")) as intervals_info_file:
-        INTERVALS_INFO = intervals_info_file.read()
-    with open(str(RACE_LOCS_FILENAME)) as table_file:
-        table_data = json.load(table_file)
-    
+    with open(file_constants.INTERVALS_INFO_PATH) as intervals_info_file:
+        intervals_info = intervals_info_file.read()
+    with open(file_constants.RACE_DATA_PATH) as data_file:
+        race_data = json.load(data_file)
+    with open(file_constants.ROUTES_PATH) as routes_file:
+        routes = json.load(routes_file)
     
     app = QApplication([])
     app.setStyleSheet(STYLE_SHEET)
-    window = MainWindow(table_data, INTERVALS_INFO)
-    sys.exit(app.exec_())
+    window = MainWindow(race_data, routes, intervals_info)
+    exit_code = app.exec_()
+    with open(file_constants.RACE_DATA_PATH, "w") as data_file:
+        json.dump(race_data, data_file)
+    with open(file_constants.ROUTES_PATH, "w") as routes_file:
+        json.dump(routes, routes_file)
+    sys.exit(exit_code)
