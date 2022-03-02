@@ -31,6 +31,7 @@ from PySide2.QtWidgets import (
     QTableWidgetItem,
     QHeaderView,
     QMessageBox,
+    QScrollArea
 )
 from PySide2.QtCore import (
     Qt,
@@ -64,100 +65,14 @@ sys.path.append(str(RESOURCES_PATH))
 import resources
 import file_constants
 import file_formatting
+from gui_constants import *
 
-# GLOBALS AND CONSTANTS
-#
-# FILENAMES
-APP_ICON = ":/gold_star.png"
-RACES_ICON = ":/races_icon.png"
-ROUTES_ICON = ":/directions_icon.PNG"
-INTERVALS_ICON = ":/intervals_icon.PNG"
-CALENDAR_ICON = ":/gold_star.png"
-COMBOBOX_ARROW = ":/combobox_arrow.PNG"
-EUROPE_ICON = ":/europe_icon.png"
-SEARCH_ICON = ":/search_icon.png"
-FLYAWAY_ICON = ":/flyaway_icon.png"
-UP_SORT_ICON = ":/combobox_arrow.PNG"
-DOWN_SORT_ICON = ":/directions_icon.PNG"
-PENCIL_ICON = ":/pencil.png"
-BIN_ICON = ":/delete.png"
-INFO_ICON = ":/info.png"
-#
-# MATHEMATICAL CONSTANTS
-PHI = 0.5 * (1 + sqrt(5))
-#
-# STYLING
-# Colours
-SECONDARY = "#306e4c"  # 224d35, then brighter
-DARK_SECONDARY = "#163121"
-HOVER = "#297034"
-ACCENT = "#43b655"
-# Positioning
-TOP_MARGIN = 55
-SINK = 2
-TITLE_PADDING = 5
-# Fonts
-FONT = "Arial"
-SMALL_FONT = 15
-HEADER_FONT_SIZE = 18
-SUBTITLE_FONT_SIZE = 21
+from pages.page import Page as Page
+from pages.listPage import ListPage as ListPage
+from pages.tablePage import TablePage as TablePage
 
-STYLE_SHEET = """
-        MyToolButton{{
-            text-align: left;
-            color: white;
-            background-color: {secondary};
-            border: none;
-            width: 200px;
-            height: 30px;
-        }}
-        MyToolButton:checked{{
-            background-color: {accent};
-            font: bold;
-            border-color: {secondary};
-            border-style: solid;
-            border-width: 1px;
-            border-radius: 2px;
-        }}
-        MyToolButton:hover:!checked{{
-            background-color: {hover};
-        }}
-        QHeaderView::section{{
-            background-color: white;
-            border: none;
-            border-top-width: 1px;
-            border-top-style: solid;
-            border-top-color: lightGray;
-            border-bottom-width: 2px;
-            border-bottom-style: solid;
-            border-bottom-color: qlineargradient(x1: 0, y1: 0, x2: 0, y2: 1, stop: 0 gray, stop: 1 white);
-            color: {secondary};
-            font: bold;
-            font-family: {font};
-            font-size: {tableHeaderFontSize}px;
-            padding-left: 2px;
-            padding-top: 5px;
-        }}
-        QTableWidget{{
-            font-family: {font};
-            font-size: {tableFontSize}px;
-            padding-left: 0px;
-            border: none;
-            border-right: 1px solid lightGray;
-            color: black;
-        }}
-        QTableWidget::item{{
-            border-bottom: 1px solid #C8C8C8;
-        }}
-""".format(
-    secondary=SECONDARY,
-    hover=HOVER,
-    accent=ACCENT,
-    font=FONT,
-    tableFontSize=SMALL_FONT,
-    tableHeaderFontSize=HEADER_FONT_SIZE,
-)
-
+from widgets.myToolButton import MyToolButton as MyToolButton
+from widgets.raceEdit import RaceEdit as RaceEdit
 
 def convertImageColor(image, rRange, gRange, bRange, targetColor):
     res = image.convertToFormat(QImage.Format_ARGB32)
@@ -171,13 +86,7 @@ def convertImageColor(image, rRange, gRange, bRange, targetColor):
     return res
 
 
-class MyToolButton(QPushButton):
-    """Convenience class for setting style of toolbar buttons."""
-
-    pass
-
-
-class MyTableWidget(QTableWidget):
+class TableWidget(QTableWidget):
 
     cellExited = Signal(int, int)
 
@@ -337,8 +246,8 @@ class MyTableWidget(QTableWidget):
         self.sortedCol = columns.index("Leg") + self.NUM_ACTIONS
 
         self.horizontalHeader().setMinimumSectionSize(0)
-        header_font = QFontMetrics(QFont(FONT, HEADER_FONT_SIZE))
-        contents_font = QFontMetrics(QFont(FONT, SMALL_FONT))
+        header_font = QFontMetrics(QFont(FONT, H3_FONT))
+        contents_font = QFontMetrics(QFont(FONT, CONTENTS_FONT))
         max_shortname_width = max(
             max(
                 contents_font.width(shortname)
@@ -382,8 +291,9 @@ class MyTableWidget(QTableWidget):
                             QPixmap(EUROPE_ICON).scaled(10, 10),
                             QIcon.Disabled)
                         item.setIcon(icon)
-                        r, g, b = (45, 125, 255)
-                        item.setForeground(QColor(r, g, b))
+                        color = QColor()
+                        color.setNamedColor(TERTIARY)
+                        item.setForeground(color)
                     elif val == file_constants.FLYAWAY_NAME:
                         icon = QIcon()
                         icon.addPixmap(
@@ -413,9 +323,8 @@ class MyTableWidget(QTableWidget):
             # REMEMBER TO MODIFY BOTH TABLE AND RACEEDIT.RACES
             # Must use setStringList
         elif col == 1:
-            raceList = RaceEdit.races.stringList()
+            raceList = self.mainWindow.race_data.races
             raceList.remove(self.item(row, self.NUM_ACTIONS).text())
-            RaceEdit.races.setStringList(raceList)
             self.removeRow(row)
 
     @Slot(int)
@@ -474,93 +383,40 @@ class MyTableWidget(QTableWidget):
             )
 
 
-class ComboBoxLineEdit(QLineEdit):
-
-    pressed = Signal()
-
-    def __init__(self):
-        super().__init__()
-        self.setStyleSheet("""
-            background-color: {secondary};
-            color: white;
-        """.format(secondary=SECONDARY))
-        self.setAlignment(Qt.AlignCenter)
-        self.setReadOnly(True)
-
-    def mousePressEvent(self, event):
-        self.pressed.emit()
-        super().mousePressEvent(event)
-
-
-class MyComboBox(QComboBox):
-
-    def __init__(self, options):
-        super().__init__()
-        for option in options:
-            self.addItem(option)
-        self.setStyleSheet("""
-            QComboBox{{
-                border: 1px solid {secondary};
-                min-height: 32px;
-                max-height: 32px;
-                background-color: {secondary};
-                color: white;
-                width: 65px;
-                border-top-left-radius: {radius}px;
-                border-bottom-left-radius: {radius}px;
-            }}
-            QComboBox::drop-down{{
-                border: 0px;
-            }}
-            QComboBox::down-arrow{{
-                image: url("{COMBOBOX_ARROW}");
-                width: 40px;
-            }}
-        """.format(secondary=SECONDARY,
-                   radius="4",
-                   COMBOBOX_ARROW=COMBOBOX_ARROW))
-
-    @Slot()
-    def lineEditPressed(self):
-        self.showPopup()
+##class MyComboBox(QComboBox):
+##
+##    def __init__(self, options):
+##        super().__init__()
+##        for option in options:
+##            self.addItem(option)
+##        self.setStyleSheet("""
+##            QComboBox{{
+##                border: 1px solid {secondary};
+##                min-height: 32px;
+##                max-height: 32px;
+##                background-color: {secondary};
+##                color: white;
+##                width: 65px;
+##                border-top-left-radius: {radius}px;
+##                border-bottom-left-radius: {radius}px;
+##            }}
+##            QComboBox::drop-down{{
+##                border: 0px;
+##            }}
+##            QComboBox::down-arrow{{
+##                image: url("{COMBOBOX_ARROW}");
+##                width: 40px;
+##            }}
+##        """.format(secondary=SECONDARY,
+##                   radius="4",
+##                   COMBOBOX_ARROW=COMBOBOX_ARROW))
+##
+##    @Slot()
+##    def lineEditPressed(self):
+##        self.showPopup()
 
 
-class Page(QWidget):
-
-    def __init__(self, mainWindow):
-        super().__init__()
-        self.mainWindow = mainWindow
-        self.mainLayout = QVBoxLayout(self)
-        self.mainLayout.setContentsMargins(20, 20, 20, 0)
-
-    def addPageHeaders(self, pageName, description=None):
-        self.pageHeaders = QHBoxLayout()
-        self.pageName = QLabel(pageName)
-        self.pageName.setStyleSheet("""
-            color: {secondary};
-            font-family: "{font}";
-            font-weight: bold;
-            font-size: {size}pt;
-        """.format(secondary=SECONDARY, font=FONT, size=SUBTITLE_FONT_SIZE))
-        self.pageHeaders.addWidget(self.pageName)
-
-        if description:
-            self.pageHeaders.setSpacing(3)
-            self.pageDescription = QLabel(description)
-            self.pageDescription.setFont(QFont(FONT, 10, italic=True))
-            self.pageDescription.setAlignment(Qt.AlignBottom)
-            self.pageDescription.setStyleSheet("""
-                color: grey;
-                padding-bottom: 2px;
-                margin-left: 0px;
-            """)
-            self.pageHeaders.addWidget(self.pageDescription)
-            self.pageHeaders.addStretch()
-
-        self.mainLayout.addLayout(self.pageHeaders)
-
-
-class RacesPage(Page):
+class RacesPage(TablePage):
 
     def __init__(self, mainWindow):
         super().__init__(mainWindow)
@@ -576,10 +432,10 @@ class RacesPage(Page):
         self.mainLayout.setStretchFactor(self.table, 1000)
 
     def addTableControls(self):
-        self.filter = MyComboBox(["All", "Europe", "Flyaway"])
-        comboBoxLineEdit = ComboBoxLineEdit()
-        self.filter.setLineEdit(comboBoxLineEdit)
-        comboBoxLineEdit.pressed.connect(self.filter.lineEditPressed)
+##        self.filter = MyComboBox(["All", "Europe", "Flyaway"])
+##        filterLineEdit = FilterLineEdit()
+##        self.filter.setLineEdit(filterLineEdit)
+##        filterLineEdit.pressed.connect(self.filter.lineEditPressed)
 
         self.searchBar = RaceEdit(self.mainWindow.race_data.races, "Search by short name...")
         self.searchBar.setPlaceholderText("Search by short name...")
@@ -610,9 +466,9 @@ class RacesPage(Page):
                 background-color: {hover};
             }}
             QPushButton:pressed{{
-                background-color: {accent};
+                background-color: {pressed};
             }}
-        """.format(secondary=SECONDARY, radius="4", accent=ACCENT,
+        """.format(secondary=SECONDARY, radius="4", pressed = PRESSED,
                    hover=HOVER))
 
         self.addRaceButton = QPushButton("Add Race")
@@ -626,7 +482,7 @@ class RacesPage(Page):
 
         self.tableControls = QHBoxLayout()
         self.tableControls.setSpacing(0)
-        self.tableControls.addWidget(self.filter)
+        #self.tableControls.addWidget(self.filter)
         self.tableControls.addWidget(self.searchBar)
         self.tableControls.setStretchFactor(self.searchBar, 64)
         self.tableControls.addWidget(self.searchButton)
@@ -637,10 +493,10 @@ class RacesPage(Page):
 
     def addTable(self, table_data):
         columns = ["Airport", "Leg", "Address"]
-        self.table = MyTableWidget(table_data, columns)
+        self.table = TableWidget(table_data, columns)
         self.mainLayout.addWidget(self.table)
 
-        self.filter.currentTextChanged.connect(self.table.filtered)
+        #self.filter.currentTextChanged.connect(self.table.filtered)
         self.searchButton.clicked.connect(self.tableSearched)
 
     @Slot()
@@ -649,7 +505,7 @@ class RacesPage(Page):
         self.table.searched(search)
 
 
-class RoutesPage(Page):
+class RoutesPage(TablePage):
 
     def __init__(self, mainWindow):
         super().__init__(mainWindow)
@@ -659,17 +515,15 @@ class RoutesPage(Page):
         self.mainLayout.addStretch(1)
 
 
-class IntervalsPage(Page):
+class IntervalsPage(ListPage):
 
     def __init__(self, INTERVALS_INFO, mainWindow):
-        self.SMALL_STRETCH = 5
-        self.MEDIUM_STRETCH = round(5 * PHI)
-        self.LARGE_STRETCH = round(5 * PHI * PHI)
         self.INTERVALS_INFO = INTERVALS_INFO
 
         super().__init__(mainWindow)
         # Add widgets to main layout
         self.addPageHeaders()
+        self.addScrollable([], SPACING_LARGE)
 
     def addPageHeaders(self):
         super().addPageHeaders("Intervals")
@@ -677,7 +531,7 @@ class IntervalsPage(Page):
                                                 range(30), range(30),
                                                 QColor("grey"))
         self.infoButton = QPushButton(QPixmap(self.infoButton_img), "")
-        dimension = QFontMetrics(QFont(FONT, SUBTITLE_FONT_SIZE)).height() // 2
+        dimension = QFontMetrics(QFont(FONT, H2_FONT)).height() // 2
         self.infoButton.setStyleSheet(f"""
             background-color: white;
             border: none;
@@ -687,10 +541,9 @@ class IntervalsPage(Page):
         self.infoButton.clicked.connect(self.openInfoDialog)
         self.pageHeaders.addWidget(self.infoButton)
         self.pageHeaders.addStretch()
-        self.mainLayout.addStretch(self.LARGE_STRETCH)
 
         self.addSelect()
-        self.mainLayout.addStretch(self.MEDIUM_STRETCH)
+        self.mainLayout.addStretch(SPACING_SMALL)
 
     def addSelect(self):
         self.descriptionRow = QHBoxLayout()
@@ -698,7 +551,7 @@ class IntervalsPage(Page):
         self.descriptionLabel.setTextFormat(Qt.RichText)
         self.descriptionLabel.setText(
             "<p style='font-size:{size}px;' style='font-family:{font};'><b style='color:{secondary};'>Select</b> a race</p>"
-            .format(secondary=SECONDARY, font={FONT}, size=SMALL_FONT))
+            .format(secondary=SECONDARY, font={FONT}, size=CONTENTS_FONT))
         self.descriptionRow.addWidget(self.descriptionLabel)
         self.descriptionRow.addStretch()
 
@@ -720,47 +573,53 @@ class IntervalsPage(Page):
         dialogBox.setWindowTitle("About intervals")
         dialogBox.setWindowIcon(QIcon(QPixmap(self.infoButton_img)))
         dialogBox.exec()
+        
+        
+class CalendarPage(ListPage):
 
-
-class RaceEdit(QComboBox):
-    """Widget for entering races."""
-
-    def __init__(self, races, placeholderText):
-        super().__init__()
-        self.model = QStringListModel(races)
-        self.setModel(self.model)
-        self.setEditable(True)
-        self.setInsertPolicy(QComboBox.NoInsert)
-        self.completer = QCompleter(self.model)
-        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.setCurrentIndex(-1)
-        self.lineEdit().setPlaceholderText(placeholderText)
-
-        self.setStyleSheet(f"""
-            QComboBox{{
-                width: 420px;
-                height: {QFontMetrics(QFont(FONT, SUBTITLE_FONT_SIZE)).height()}px;
-                border: none;
-                font-family: {FONT};
-                font-size: {SUBTITLE_FONT_SIZE}px;
-            }}
-        """)
-        self.lineEdit().setAlignment(Qt.AlignBottom)
-        self.lineEdit().setStyleSheet("""
-            border-bottom: 1px solid lightGray;
-            background-color: #f6faf6;
-        """)
-
-
-class CalendarPage(Page):
-
-    def __init__(self, mainWindow):
+    def __init__(self, mainWindow, calendar):
         super().__init__(mainWindow)
-        self.addPageHeaders()
+        self.calendar = calendar
+        
+        self.addPageHeaders("Final Calendar")
+        self.mainLayout.addSpacing(SPACING_MEDIUM)
 
-    def addPageHeaders(self):
-        super().addPageHeaders("Final Calendar")
-        self.pageName.setAlignment(Qt.AlignHCenter)
+        topControls = QVBoxLayout()
+        self.totalCO2 = QLabel("")
+        self.totalCO2.setTextFormat(Qt.RichText)
+
+        self.calendarLayout = QVBoxLayout()
+        self.calendarItems = []
+        self.addScrollable([], SPACING_LARGE)
+
+        self.drawCalendarInfo()
+
+    def drawCalendarInfo(self):
+        self.totalCO2.setText(
+            "<p style='font-size:{size}px;' style='font-family:{font};' style='color:gray;'>Total emitted: <b style='color:{secondary};'>{emitted} tonnes CO2</b></p>"
+        .format(secondary=SECONDARY, font={FONT}, size=CONTENTS_FONT, emitted = self.calendar[0]))
+        for calendarItem in self.calendarItems:
+            self.calendarLayout.removeItem(calendarItem)
+        for raceIndex, race in enumerate(self.calendar[1]):
+            newRow = self.createCalendarItem(raceIndex + 1, race)
+            newRow = QHBoxLayout()
+            newRow.addWidget(QLabel("hi"))
+            self.calendarLayout.addLayout(newRow)
+            self.calendarLayout.addSpacing(SPACING_SMALL)
+        self.calendarLayout.addStretch()
+
+    def createCalendarItem(self, raceNum, race):
+        layout = QHBoxLayout()
+        numberLabel = QLabel(f"{raceNum}.")
+        numberLabel.setFont(QFont(FONT, CONTENTS_FONT))
+        nameLabel = QLabel(f"{race}")
+        nameLabel.setFont(QFont(FONT, CONTENTS_FONT))
+        layout.addWidget(numberLabel)
+        layout.addStretch(1)
+        layout.addWidget(nameLabel)
+        layout.addWidget(QLabel("Hi"))
+        layout.addStretch(15)
+        return layout
 
 
 class RaceData:
@@ -775,17 +634,17 @@ class RaceData:
 
 class MainWindow(QMainWindow):
 
-    def __init__(self, race_data, routes, intervals_info):
+    def __init__(self, race_data, routes, intervals_info, calendar):
         super().__init__()
         self.race_data = RaceData(race_data)
         self.routes = routes
         
         self.setWindowTitle("Green Calendar F1")
-        self.setGeometry(100, 100, 750 * PHI, 750)
+        self.setGeometry(WINDOW_POS[0], WINDOW_POS[1], WINDOW_SIZE[0], WINDOW_SIZE[1])        
         self.setWindowIcon(QIcon(APP_ICON))
-        self.displayInit(intervals_info)
+        self.displayInit(intervals_info, calendar)
 
-    def displayInit(self, intervals_info):
+    def displayInit(self, intervals_info, calendar):
         self.displayToolBar()
         self.displayTitleLabel()
 
@@ -796,7 +655,7 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(self.routesPage)
         self.intervalsPage = IntervalsPage(intervals_info, self)
         self.pages.addWidget(self.intervalsPage)
-        self.calendarPage = CalendarPage(self)
+        self.calendarPage = CalendarPage(self, calendar)
         self.pages.addWidget(self.calendarPage)
         self.pages.setCurrentIndex(0)
 
@@ -880,7 +739,7 @@ class MainWindow(QMainWindow):
                          topButton=False):
         button = MyToolButton()
         button.setIcon(QIcon(imageFile))
-        button.setFont(QFont("Helvetica", 10))
+        button.setFont(QFont(FONT, 10))
         button.setText(buttonText)
         button.setCheckable(True)
         if topButton:
@@ -917,10 +776,12 @@ if __name__ == "__main__":
         race_data = json.load(data_file)
     with open(file_constants.ROUTES_PATH) as routes_file:
         routes = json.load(routes_file)
+    with open(file_constants.CALENDAR_PATH) as calendar_file:
+        calendar = json.load(calendar_file)
     
     app = QApplication([])
     app.setStyleSheet(STYLE_SHEET)
-    window = MainWindow(race_data, routes, intervals_info)
+    window = MainWindow(race_data, routes, intervals_info, calendar)
     exit_code = app.exec_()
     with open(file_constants.RACE_DATA_PATH, "w") as data_file:
         json.dump(race_data, data_file)

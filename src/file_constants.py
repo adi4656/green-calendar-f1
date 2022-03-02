@@ -13,6 +13,7 @@ ROUTES_PATH = data_path / "routes.txt"
 RACE_DATA_PATH = data_path / "race_data.txt"
 HQS_PATH = data_path / "headquarters.txt"
 INTERVALS_INFO_PATH = data_path / "intervals_info.txt"
+CALENDAR_PATH = data_path / "calendar.txt"
 
 # Locations file
 EUROPE_NAME = "Europe"
